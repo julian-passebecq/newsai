@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 
 # Function to fetch and parse the sitemap
-def fetch_sitemap(url):
+def fetch_sitemap(url, website_name):
     response = requests.get(url)
     root = ET.fromstring(response.content)
     data = []
@@ -13,7 +13,11 @@ def fetch_sitemap(url):
         loc = url.find('{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text
         lastmod = url.find('{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod').text
         article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
-        data.append({'URL': loc, 'Article Name': article_name, 'Last Mod.': lastmod})
+        # Replace dashes with spaces for the article name
+        article_name = article_name.replace('-', ' ')
+        # Format the date to "day month year"
+        lastmod_formatted = datetime.strptime(lastmod.split('T')[0], '%Y-%m-%d').strftime('%d %B %Y')
+        data.append({'Website': website_name, 'URL': loc, 'Article Name': article_name, 'Last Mod.': lastmod_formatted})
     return data
 
 # Function to filter articles based on a search query
@@ -26,12 +30,11 @@ def filter_articles(articles, query):
 def main():
     st.title('Article Search')
     sitemap_url = 'https://www.kevinrchant.com/post-sitemap.xml'
-    articles = fetch_sitemap(sitemap_url)
+    website_name = 'Kevin R Chant'  # Example website name, adjust as necessary
+    articles = fetch_sitemap(sitemap_url, website_name)
 
     # Convert the articles list to a pandas DataFrame
     articles_df = pd.DataFrame(articles)
-    # Convert 'Last Mod.' to datetime for better handling
-    articles_df['Last Mod.'] = pd.to_datetime(articles_df['Last Mod.'])
 
     search_query = st.text_input('Enter search term:', '')
 
@@ -39,7 +42,8 @@ def main():
 
     if filtered_articles:
         filtered_df = pd.DataFrame(filtered_articles)
-        st.write(filtered_df[['Article Name', 'URL', 'Last Mod.']])
+        # Display the DataFrame with the new column order including website name
+        st.write(filtered_df[['Website', 'Article Name', 'URL', 'Last Mod.']])
     else:
         st.write("No articles found.")
 
