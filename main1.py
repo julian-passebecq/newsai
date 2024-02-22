@@ -18,10 +18,10 @@ def fetch_sitemap(url, website_name='Default Website'):
         category = loc.split('/')[-3] if loc.endswith('/') else loc.split('/')[-2]
         data.append({
             'Website': website_name,
-            'Category': category,  # Added category
+            'Category': category,
             'URL': loc,
             'Article Name': article_name,
-            'Last Mod.': lastmod
+            'Last Mod.': lastmod  # Keep as original for internal operations
         })
     return data
 
@@ -39,7 +39,7 @@ def main():
 
     # Convert the articles list to a pandas DataFrame
     articles_df = pd.DataFrame(articles)
-    # Ensure 'Last Mod.' is treated as datetime
+    # Ensure 'Last Mod.' is treated as datetime for internal operations
     articles_df['Last Mod.'] = pd.to_datetime(articles_df['Last Mod.'])
 
     search_query = st.text_input('Enter search term:', '')
@@ -48,13 +48,13 @@ def main():
 
     if filtered_articles:
         filtered_df = pd.DataFrame(filtered_articles)
-        # Ensure 'Last Mod.' in filtered_df is also datetime to avoid the AttributeError
-        filtered_df['Last Mod.'] = pd.to_datetime(filtered_df['Last Mod.'])
+        # No need to reconvert 'Last Mod.' here since it was already done for articles_df
         # Sort by 'Last Mod.'
         filtered_df = filtered_df.sort_values(by='Last Mod.', ascending=False)
-        # Format the 'Last Mod.' column for display
+        # Create a formatted date column for display purposes
         filtered_df['Formatted Last Mod.'] = filtered_df['Last Mod.'].dt.strftime('%d %B %Y')
-        st.write(filtered_df[['Website', 'Category', 'Article Name', 'URL', 'Formatted Last Mod.']])
+        # Ensure the internal 'Last Mod.' date is available for operations but display the formatted date
+        st.write(filtered_df[['Website', 'Category', 'Article Name', 'URL', 'Last Mod.', 'Formatted Last Mod.']])
     else:
         st.write("No articles found.")
 
