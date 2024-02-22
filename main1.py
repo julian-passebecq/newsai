@@ -4,8 +4,16 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from datetime import datetime
 
-# Function to fetch and parse the sitemap, now includes website name
-def fetch_sitemap(url, website_name='Default Website'):
+# List of websites to fetch sitemaps from, with their names and URLs
+websites = [
+    {'name': 'Kevin R Chant', 'url': 'https://www.kevinrchant.com/post-sitemap.xml'},
+    {'name': 'Data Mozart', 'url': 'https://data-mozart.com/post-sitemap.xml'},
+    {'name': 'Crossjoin', 'url': 'https://blog.crossjoin.co.uk/sitemap-1.xml'},
+    {'name': 'Thomas Leblanc', 'url': 'https://thomas-leblanc.com/sitemap-1.xml'}
+]
+
+# Function to fetch and parse the sitemap
+def fetch_sitemap(url, website_name):
     response = requests.get(url)
     root = ET.fromstring(response.content)
     data = []
@@ -14,16 +22,21 @@ def fetch_sitemap(url, website_name='Default Website'):
         lastmod = url.find('{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod').text
         article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
         article_name = article_name.replace('-', ' ')  # Replace hyphens with spaces
-        # Assume category is the second to last path segment; adjust as necessary
-        category = loc.split('/')[-3] if loc.endswith('/') else loc.split('/')[-2]
         data.append({
             'Website': website_name,
-            'Category': category,
             'URL': loc,
             'Article Name': article_name,
             'Last Mod.': lastmod  # Keep as original for internal operations
         })
     return data
+
+# Function to aggregate articles from multiple websites
+def fetch_articles_from_websites(websites):
+    all_articles = []
+    for website in websites:
+        website_articles = fetch_sitemap(website['url'], website['name'])
+        all_articles.extend(website_articles)
+    return all_articles
 
 # Function to filter articles based on a search query
 def filter_articles(articles, query):
@@ -33,9 +46,9 @@ def filter_articles(articles, query):
 
 # Main Streamlit app
 def main():
-    st.title('Article Search')
-    sitemap_url = 'https://www.kevinrchant.com/post-sitemap.xml'
-    articles = fetch_sitemap(sitemap_url, 'Kevin R Chant')  # Added website name
+    st.title('Article Search Across Multiple Websites')
+    
+    articles = fetch_articles_from_websites(websites)
 
     # Convert the articles list to a pandas DataFrame
     articles_df = pd.DataFrame(articles)
@@ -55,7 +68,7 @@ def main():
         # Format the 'Last Mod.' column for display now that we're sure it's datetime
         filtered_df['Formatted Last Mod.'] = filtered_df['Last Mod.'].dt.strftime('%d %B %Y')
         # Display the DataFrame, including the internal 'Last Mod.' for operations and the formatted one for readability
-        st.write(filtered_df[['Website', 'Category', 'Article Name', 'URL', 'Last Mod.', 'Formatted Last Mod.']])
+        st.write(filtered_df[['Website', 'Article Name', 'URL', 'Last Mod.', 'Formatted Last Mod.']])
     else:
         st.write("No articles found.")
 
