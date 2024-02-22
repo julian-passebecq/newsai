@@ -39,7 +39,7 @@ def main():
 
     # Convert the articles list to a pandas DataFrame
     articles_df = pd.DataFrame(articles)
-    # Convert 'Last Mod.' to datetime for better handling and sorting
+    # Ensure 'Last Mod.' is treated as datetime
     articles_df['Last Mod.'] = pd.to_datetime(articles_df['Last Mod.'])
 
     search_query = st.text_input('Enter search term:', '')
@@ -47,9 +47,12 @@ def main():
     filtered_articles = filter_articles(articles, search_query)
 
     if filtered_articles:
-        # Ensure the DataFrame is sorted by date
-        filtered_df = pd.DataFrame(filtered_articles).sort_values(by='Last Mod.', ascending=False)
-        # Format the 'Last Mod.' column for display, while keeping the original for sorting
+        filtered_df = pd.DataFrame(filtered_articles)
+        # Ensure 'Last Mod.' in filtered_df is also datetime to avoid the AttributeError
+        filtered_df['Last Mod.'] = pd.to_datetime(filtered_df['Last Mod.'])
+        # Sort by 'Last Mod.'
+        filtered_df = filtered_df.sort_values(by='Last Mod.', ascending=False)
+        # Format the 'Last Mod.' column for display
         filtered_df['Formatted Last Mod.'] = filtered_df['Last Mod.'].dt.strftime('%d %B %Y')
         st.write(filtered_df[['Website', 'Category', 'Article Name', 'URL', 'Formatted Last Mod.']])
     else:
