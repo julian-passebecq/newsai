@@ -2,94 +2,68 @@ import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
 import pandas as pd
-from urllib.parse import urlparse
-from datetime import datetime
 
-# Adjust the headers for requests to handle servers that might reject the default Python requests User-Agent
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-}
-
-# Function to fetch and parse the sitemap
+# Function to fetch and parse the sitemap, with website name included
 def fetch_sitemap(url):
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Raises an error for bad responses
-        root = ET.fromstring(response.content)
-        data = []
-        namespace = {'sitemap': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
-        for url in root.findall('sitemap:url/sitemap:loc', namespace) + root.findall('sitemap:url', namespace):
-            loc = url.text if url.text else url.find('sitemap:loc', namespace).text
-            lastmod = url.find('sitemap:lastmod', namespace)
-            lastmod = lastmod.text if lastmod is not None else "Unknown"
-            article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
-            article_name = article_name.replace('-', ' ')  # Replace dashes with spaces
-            website_name = urlparse(loc).netloc  # Extract website name from URL
+    response = requests.get(url)
+    root = ET.fromstring(response.content)
+    data = []
+    website_name = url.split('/')[2]  # Extract the website name from the URL
+    for url in root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}url'):
+        loc = url.find('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text
+        lastmod = url.find('.//{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod').text
+        article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
+        # Replace dashes with spaces in the article name for correct syntax
+        article_name = article_name.replace('-', ' ')
+        # Format date
+        lastmod_formatted = pd.to_datetime(lastmod).strftime('%d %B %Y')
+        data.append({
+            'Website': website_name,
+            'URL': loc,
+            'Article Name': article_name,
+            'Last Mod.': lastmod_formatted
+        })
+    return data
 
-            # Attempt to parse and format the lastmod date
-            try:
-                if lastmod != "Unknown":
-                    lastmod_datetime = datetime.strptime(lastmod, "%Y-%m-%dT%H:%M:%S%z")
-                    lastmod_formatted = lastmod_datetime.strftime('%d %B %Y')
-                else:
-                    lastmod_formatted = "Unknown"
-            except ValueError:
-                # Handle different date formats if necessary
-                lastmod_formatted = "Unknown"
-
-            data.append({
-                'Website': website_name,
-                'URL': loc,
-                'Article Name': article_name,
-                'Last Mod.': lastmod_formatted
-            })
-        return data
-    except requests.RequestException as e:
-        print(f"Request error for {url}: {e}")
-        return []
-    except ET.ParseError as e:
-        print(f"XML parse error for {url}: {e}")
-        return []
-
-# Function to fetch articles from multiple sitemaps
+# Fetch and combine sitemaps from multiple websites
 def fetch_multiple_sitemaps(urls):
-    articles = []
+    all_articles = []
     for url in urls:
-        articles.extend(fetch_sitemap(url))
-    return articles
-
-# Function to filter articles based on a search query and website
-def filter_articles(articles, query, website):
-    filtered_articles = articles
-    if query:
-        filtered_articles = [article for article in filtered_articles if query.lower() in article['Article Name'].lower()]
-    if website and website != 'All':
-        filtered_articles = [article for article in filtered_articles if website.lower() == article['Website'].lower()]
-    return filtered_articles
+        articles = fetch_sitemap(url)
+        all_articles.extend(articles)
+    return all_articles
 
 # Main Streamlit app
 def main():
     st.title('Article Search Across Multiple Sites')
-
+    
+    # List of sitemaps to fetch articles from
     sitemap_urls = [
         'https://www.kevinrchant.com/post-sitemap.xml',
         'https://data-mozart.com/post-sitemap.xml',
         'https://thomas-leblanc.com/sitemap-1.xml',
-        'https://www.oliviertravers.com/post-sitemap.xml',
+        'https://www.oliviertravers.com/post-sitemap.xml'
     ]
-
+    
     articles = fetch_multiple_sitemaps(sitemap_urls)
-
     articles_df = pd.DataFrame(articles)
 
-    search_query = st.text_input('Enter search term:')
-    website_option = st.selectbox('Select website', ['All'] + sorted(set(articles_df['Website'])))
+    # Website filter
+    website_list = articles_df['Website'].unique().tolist()
+    selected_website = st.selectbox('Select a website to filter:', ['All'] + website_list)
 
-    filtered_articles = filter_articles(articles, search_query, website_option)
+    # Apply website filter if not 'All'
+    if selected_website != 'All':
+        articles_df = articles_df[articles_df['Website'] == selected_website]
 
-    if filtered_articles:
-        filtered_df = pd.DataFrame(filtered_articles)
-        st.dataframe(filtered_df[['Website', 'Article Name', 'URL', 'Last Mod.']], height=600)
+    search_query = st.text_input('Enter search term:', '')
+
+    # Filter articles based on the search query
+    if search_query:
+        articles_df = articles_df[articles_df['Article Name'].str.contains(search_query, case=False)]
+
+    if not articles_df.empty:
+        st.write(articles_df[['Website', 'Article Name', 'URL', 'Last Mod.']])
     else:
         st.write("No articles found.")
 
