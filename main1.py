@@ -48,12 +48,13 @@ def main():
 
     if filtered_articles:
         filtered_df = pd.DataFrame(filtered_articles)
-        # No need to reconvert 'Last Mod.' here since it was already done for articles_df
-        # Sort by 'Last Mod.'
+        # Re-apply the datetime conversion to ensure 'Last Mod.' is always datetime
+        filtered_df['Last Mod.'] = pd.to_datetime(filtered_df['Last Mod.'])
+        # Sort by 'Last Mod.' to ensure sorting happens on the datetime column
         filtered_df = filtered_df.sort_values(by='Last Mod.', ascending=False)
-        # Create a formatted date column for display purposes
+        # Format the 'Last Mod.' column for display now that we're sure it's datetime
         filtered_df['Formatted Last Mod.'] = filtered_df['Last Mod.'].dt.strftime('%d %B %Y')
-        # Ensure the internal 'Last Mod.' date is available for operations but display the formatted date
+        # Display the DataFrame, including the internal 'Last Mod.' for operations and the formatted one for readability
         st.write(filtered_df[['Website', 'Category', 'Article Name', 'URL', 'Last Mod.', 'Formatted Last Mod.']])
     else:
         st.write("No articles found.")
