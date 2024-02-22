@@ -5,48 +5,62 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime
 
-# Helper function to normalize namespace prefixes
-def ns(tag):
-    # Extract the namespace from the tag
-    if '}' in tag:
-        ns_uri, tag = tag.split('}')
-        return f"{{{ns_uri[1:]}}}{tag}"
-    return tag
+# Helper function to normalize namespace prefixes and find elements
+def find_with_ns(element, tag, namespaces):
+    # Try to find the element with provided namespaces
+    for ns in namespaces:
+        found = element.find(f'.//{{{ns}}}{tag}')
+        if found is not None:
+            return found
+    return None
 
-# Function to fetch and parse the sitemap, with error handling and support for different XML structures
+# Function to fetch and parse the sitemap, with enhanced error handling and date parsing
 def fetch_sitemap(url):
     try:
         response = requests.get(url)
-        response.raise_for_status()  # This will raise an error for bad responses
+        response.raise_for_status()  # This ensures HTTP errors are caught
+        # Attempt to parse the XML content
         root = ET.fromstring(response.content)
         data = []
-        for sitemap in root.findall('.//*'):
-            if ns('loc') in sitemap.tag:
-                loc = sitemap.text
-                lastmod_tag = sitemap.find(f'.//{ns("lastmod")}')
-                lastmod = lastmod_tag.text if lastmod_tag is not None else "Unknown"
-                article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
-                article_name = article_name.replace('-', ' ')  # Replace dashes with spaces for article name
-                website_name = urlparse(loc).netloc  # Extract website name from URL
-                
-                # Parse and format the date
-                if lastmod != "Unknown":
-                    try:
+        # Define common namespaces that might be used in sitemaps
+        namespaces = ['http://www.sitemaps.org/schemas/sitemap/0.9', 'http://www.google.com/schemas/sitemap/0.84']
+        for sitemap in root.findall('.//{*}url'):
+            loc = sitemap.find(f'.//{{*}}loc').text
+            lastmod_element = find_with_ns(sitemap, 'lastmod', namespaces)
+            lastmod = lastmod_element.text if lastmod_element is not None else "Unknown"
+            article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
+            article_name = article_name.replace('-', ' ')  # Convert URL slug to readable format
+            website_name = urlparse(loc).netloc  # Extract website domain
+            
+            # Attempt to parse and format the last modification date
+            if lastmod != "Unknown":
+                try:
+                    # Handling different date formats
+                    if '+' in lastmod:
                         lastmod_datetime = datetime.strptime(lastmod, "%Y-%m-%dT%H:%M:%S%z")
-                        lastmod_formatted = lastmod_datetime.strftime('%d %B %Y')
-                    except ValueError:
-                        lastmod_formatted = "Unknown"
-                else:
+                    else:
+                        lastmod_datetime = datetime.strptime(lastmod, "%Y-%m-%dT%H:%M:%S")
+                    lastmod_formatted = lastmod_datetime.strftime('%d %B %Y')
+                except ValueError:
+                    # Fallback if the date format does not match expectations
                     lastmod_formatted = "Unknown"
-                
-                data.append({'Website': website_name, 'URL': loc, 'Article Name': article_name, 'Last Mod.': lastmod_formatted})
+            else:
+                lastmod_formatted = "Unknown"
+            
+            data.append({
+                'Website': website_name,
+                'URL': loc,
+                'Article Name': article_name,
+                'Last Mod.': lastmod_formatted
+            })
         return data
     except requests.RequestException as e:
-        print(f"Request error for {url}: {e}")
+        st.error(f"Request error for {url}: {e}")
         return []
     except ET.ParseError as e:
-        print(f"XML parse error for {url}: {e}")
+        st.error(f"XML parse error for {url}: {e}")
         return []
+
 
 # Fetch articles from multiple sitemaps
 def fetch_multiple_sitemaps(urls):
