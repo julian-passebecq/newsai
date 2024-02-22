@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from datetime import datetime
 
-# List of websites to fetch sitemaps from, with their names and URLs
+# Define websites with their names and sitemap URLs
 websites = [
     {'name': 'Kevin R Chant', 'url': 'https://www.kevinrchant.com/post-sitemap.xml'},
     {'name': 'Data Mozart', 'url': 'https://data-mozart.com/post-sitemap.xml'},
@@ -17,25 +17,32 @@ def fetch_sitemap(url, website_name):
     response = requests.get(url)
     root = ET.fromstring(response.content)
     data = []
-    for url in root.findall('{http://www.sitemaps.org/schemas/sitemap/0.9}url'):
-        loc = url.find('{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text
-        lastmod = url.find('{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod').text
-        article_name = loc.split('/')[-2] if loc.endswith('/') else loc.split('/')[-1]
-        article_name = article_name.replace('-', ' ')  # Replace hyphens with spaces
-        data.append({
-            'Website': website_name,
-            'URL': loc,
-            'Article Name': article_name,
-            'Last Mod.': lastmod  # Keep as original for internal operations
-        })
+    
+    # Different handling based on the website
+    if "kevinrchant.com" in url or "data-mozart.com" in url:
+        # Process sitemaps that follow a specific structure
+        for sitemap_url in root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}url'):
+            loc = sitemap_url.find('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text
+            lastmod = sitemap_url.find('.//{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod')
+            lastmod = lastmod.text if lastmod is not None else 'Unknown'
+            article_name = loc.split('/')[-1].replace('-', ' ')
+            data.append({'Website': website_name, 'URL': loc, 'Article Name': article_name, 'Last Mod.': lastmod})
+    else:
+        # Handle other sitemaps without specific namespaces
+        for sitemap_url in root.findall('.//url'):
+            loc = sitemap_url.find('.//loc').text
+            lastmod = sitemap_url.find('.//lastmod')
+            lastmod = lastmod.text if lastmod is not None else 'Unknown'
+            article_name = loc.split('/')[-1].replace('-', ' ')
+            data.append({'Website': website_name, 'URL': loc, 'Article Name': article_name, 'Last Mod.': lastmod})
     return data
 
 # Function to aggregate articles from multiple websites
 def fetch_articles_from_websites(websites):
     all_articles = []
     for website in websites:
-        website_articles = fetch_sitemap(website['url'], website['name'])
-        all_articles.extend(website_articles)
+        articles = fetch_sitemap(website['url'], website['name'])
+        all_articles.extend(articles)
     return all_articles
 
 # Function to filter articles based on a search query
@@ -44,31 +51,22 @@ def filter_articles(articles, query):
         return articles
     return [article for article in articles if query.lower() in article['Article Name'].lower()]
 
-# Main Streamlit app
+# Main Streamlit app logic
 def main():
     st.title('Article Search Across Multiple Websites')
     
     articles = fetch_articles_from_websites(websites)
-
-    # Convert the articles list to a pandas DataFrame
     articles_df = pd.DataFrame(articles)
-    # Ensure 'Last Mod.' is treated as datetime for internal operations
     articles_df['Last Mod.'] = pd.to_datetime(articles_df['Last Mod.'])
 
-    search_query = st.text_input('Enter search term:', '')
-
+    search_query = st.text_input('Enter search term:')
     filtered_articles = filter_articles(articles, search_query)
 
     if filtered_articles:
         filtered_df = pd.DataFrame(filtered_articles)
-        # Re-apply the datetime conversion to ensure 'Last Mod.' is always datetime
         filtered_df['Last Mod.'] = pd.to_datetime(filtered_df['Last Mod.'])
-        # Sort by 'Last Mod.' to ensure sorting happens on the datetime column
         filtered_df = filtered_df.sort_values(by='Last Mod.', ascending=False)
-        # Format the 'Last Mod.' column for display now that we're sure it's datetime
-        filtered_df['Formatted Last Mod.'] = filtered_df['Last Mod.'].dt.strftime('%d %B %Y')
-        # Display the DataFrame, including the internal 'Last Mod.' for operations and the formatted one for readability
-        st.write(filtered_df[['Website', 'Article Name', 'URL', 'Last Mod.', 'Formatted Last Mod.']])
+        st.write(filtered_df[['Website', 'Article Name', 'URL', 'Last Mod.']])
     else:
         st.write("No articles found.")
 
