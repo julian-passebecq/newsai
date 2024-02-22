@@ -4,20 +4,23 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from datetime import datetime
 
-# Define the sitemap URLs
+# Extend the sitemap URLs with the new website
 sitemap_urls = {
     'Kevin R Chant': 'https://www.kevinrchant.com/post-sitemap.xml',
     'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
-    'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml'
+    'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
+    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml'
 }
 
-def find_lastmod_element(url_elem, namespace):
-    # Possible tag names for the last modified date
-    for tag in ['lastmod', 'Last Modified', 'lastMod']:
-        lastmod = url_elem.find(f'{namespace}{tag}')
-        if lastmod is not None:
-            return lastmod.text
+def find_lastmod_element(url_element, namespace):
+    # Check for the standard 'lastmod' tag first
+    lastmod = url_element.find(f'{namespace}lastmod')
+    if lastmod is not None:
+        return lastmod.text
+    
+    # Add other site-specific last modified tag checks here if necessary
+    
     return 'Not provided'
 
 def parse_sitemap(url):
@@ -33,11 +36,12 @@ def parse_sitemap(url):
     namespace = ''
     if '}' in sitemap_xml.tag:
         namespace = sitemap_xml.tag.split('}')[0] + '}'
+    namespace = {'': namespace}  # For use with find/findall
 
     articles = []
-    for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
-        loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
-        lastmod = find_lastmod_element(url_elem, namespace)  # Use the new function to find the last modified date
+    for url_elem in sitemap_xml.findall('.//url', namespaces=namespace):
+        loc = url_elem.find('.//loc', namespaces=namespace).text if url_elem.find('.//loc', namespaces=namespace) is not None else 'URL not found'
+        lastmod = find_lastmod_element(url_elem, namespace)  # Now using the helper function
         articles.append({'URL': loc, 'Last Modified': lastmod})
 
     return articles
