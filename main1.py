@@ -12,6 +12,14 @@ sitemap_urls = {
     'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml'
 }
 
+def find_lastmod_element(url_elem, namespace):
+    # Possible tag names for the last modified date
+    for tag in ['lastmod', 'Last Modified', 'lastMod']:
+        lastmod = url_elem.find(f'{namespace}{tag}')
+        if lastmod is not None:
+            return lastmod.text
+    return 'Not provided'
+
 def parse_sitemap(url):
     response = requests.get(url)
     if response.status_code != 200:
@@ -29,8 +37,7 @@ def parse_sitemap(url):
     articles = []
     for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
         loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
-        lastmod_elem = url_elem.find(f'{namespace}lastmod')
-        lastmod = lastmod_elem.text if lastmod_elem is not None else 'Not provided'
+        lastmod = find_lastmod_element(url_elem, namespace)  # Use the new function to find the last modified date
         articles.append({'URL': loc, 'Last Modified': lastmod})
 
     return articles
