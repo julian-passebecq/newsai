@@ -4,3 +4,4 @@ pandas
 xml.etree.ElementTree
 urllib.parse 
 datetime 
+dateutil

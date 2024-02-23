@@ -2,65 +2,70 @@ import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
 import pandas as pd
+from datetime import datetime
+from dateutil import parser  # Import dateutil.parser for flexible date parsing
 
-# Define the sitemap URLs including Brunner
+# Define the sitemap URLs
 sitemap_urls = {
     'Kevin R Chant': 'https://www.kevinrchant.com/post-sitemap.xml',
     'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
     'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
-    'Brunner': 'https://en.brunner.bi/blog-posts-sitemap.xml',
+    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml',  # Added the new website here
+    # Add more sitemaps here as needed
 }
 
-# Function to fetch and parse the sitemap XML
-def fetch_parse_sitemap(url):
-    try:
-        # Fetch the XML content
-        response = requests.get(url)
-        response.raise_for_status()  # will raise an HTTPError if the HTTP request returned an unsuccessful status code
-    except requests.exceptions.RequestException as e:
-        st.error(f"Request error for {url}: {e}")
+def parse_sitemap(url):
+    response = requests.get(url)
+    if response.status_code != 200:
         return []
     try:
-        # Parse the XML content
-        root = ET.fromstring(response.content)
-        namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
-        # Find all 'url' elements
-        urls = root.findall('ns:url', namespace)
-        articles = [
-            {
-                'URL': elem.find('ns:loc', namespace).text,
-                'Last Modified': elem.find('ns:lastmod', namespace).text if elem.find('ns:lastmod', namespace) is not None else 'Not provided'
-            }
-            for elem in urls
-        ]
-        return articles
-    except ET.ParseError as e:
-        st.error(f"XML parse error for {url}: {e}")
+        sitemap_xml = ET.fromstring(response.content)
+    except ET.ParseError:
         return []
 
-# Main function to run the Streamlit app
+    # Look for the namespace
+    namespace = ''
+    if '}' in sitemap_xml.tag:
+        namespace = sitemap_xml.tag.split('}')[0] + '}'
+
+    articles = []
+    for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
+        loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
+        lastmod_elem = url_elem.find(f'{namespace}lastmod')
+        lastmod = 'Not provided'
+        if lastmod_elem is not None:
+            lastmod = lastmod_elem.text
+            try:
+                # Use dateutil.parser to parse the date flexibly
+                lastmod = parser.parse(lastmod).isoformat()
+            except ValueError:
+                lastmod = 'Invalid date format'
+        articles.append({'URL': loc, 'Last Modified': lastmod})
+
+    return articles
+
 def main():
     st.title('Article Search Across Multiple Websites')
+    
     all_articles = []
-    for name, url in sitemap_urls.items():
-        articles = fetch_parse_sitemap(url)
-        # Add the website name to each article
+    for website_name, sitemap_url in sitemap_urls.items():
+        articles = parse_sitemap(sitemap_url)
         for article in articles:
-            article['Website'] = name
+            article['Website'] = website_name  # Add website name to each article
         all_articles.extend(articles)
-    # Create a DataFrame from the articles
-    df = pd.DataFrame(all_articles)
-    # Convert 'Last Modified' to datetime and format it
-    df['Last Modified'] = pd.to_datetime(df['Last Modified'], errors='coerce').dt.strftime('%Y-%m-%d')
+    
+    articles_df = pd.DataFrame(all_articles)
+    # Now, all dates are already in ISO format, thanks to dateutil.parser
+    articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
 
-    # User input for search
     search_query = st.text_input('Enter search term:')
-    # Filter articles based on search query
-    filtered_articles = df[df['URL'].str.contains(search_query, na=False)] if search_query else df
+    if search_query:
+        filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
+    else:
+        filtered_articles = articles_df
 
-    # Display the articles in the app
-    st.dataframe(filtered_articles)
+    st.write(filtered_articles)
 
 if __name__ == "__main__":
     main()
