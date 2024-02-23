@@ -44,4 +44,37 @@ def fetch_sitemap(url, website_name):
 
     return data
 
+
+
+
 # Main function to fetch and display articles
+def main():
+    st.title('Article Search Across Multiple Websites')
+    
+    # Fetch articles from all websites
+    all_articles = []
+    for website in websites:
+        all_articles.extend(fetch_sitemap(website['url'], website['name']))
+    
+    # Create DataFrame
+    articles_df = pd.DataFrame(all_articles)
+    articles_df['Last Mod.'] = pd.to_datetime(articles_df['Last Mod.'], errors='coerce', utc=True)
+    articles_df.sort_values(by='Last Mod.', ascending=False, inplace=True)
+    
+    # User input for search
+    search_query = st.text_input('Enter search term:')
+    
+    # Filter articles based on search query
+    if search_query:
+        filtered_articles = articles_df[articles_df['Article Name'].str.contains(search_query, case=False)]
+    else:
+        filtered_articles = articles_df
+
+    # Display results
+    if not filtered_articles.empty:
+        st.write(filtered_articles[['Website', 'Article Name', 'URL', 'Last Mod.']])
+    else:
+        st.write("No articles found matching the search criteria.")
+
+if __name__ == "__main__":
+    main()
