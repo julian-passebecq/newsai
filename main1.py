@@ -1,31 +1,29 @@
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
-import pandas as pd
 from dateutil import parser
+import pandas as pd
 
-# Arrays to hold different types of sitemap URLs
+# Define the sitemap URLs for standard and Brunner format
 standard_sitemap_urls = [
-    'https://www.kevinrchant.com/post-sitemap.xml',
-    'https://data-mozart.com/post-sitemap.xml',
-    'https://blog.crossjoin.co.uk/sitemap-1.xml',
-    'https://thomas-leblanc.com/sitemap-1.xml',
-    # Add more standard sitemaps here
+    # Add standard format sitemap URLs here
 ]
 
 brunner_sitemap_urls = [
-    'https://en.brunner.bi/blog-posts-sitemap.xml',
-    # Add more Brunner format sitemaps here
+    'https://en.brunner.bi/blog-posts-sitemap.xml',  # Add Brunner format sitemap URLs here
 ]
 
 def parse_standard_sitemap(url):
     """Parse sitemaps with the standard format."""
     response = requests.get(url)
     if response.status_code != 200:
+        st.error(f"Error fetching the sitemap from {url}: HTTP {response.status_code}")
         return []
+
     try:
         sitemap_xml = ET.fromstring(response.content)
-    except ET.ParseError:
+    except ET.ParseError as e:
+        st.error(f"XML parsing error for {url}: {e}")
         return []
 
     namespace = ''
@@ -34,20 +32,21 @@ def parse_standard_sitemap(url):
 
     articles = []
     for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
-        loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
+        loc = url_elem.find(f'{namespace}loc').text
         lastmod_elem = url_elem.find(f'{namespace}lastmod')
         lastmod = lastmod_elem.text if lastmod_elem is not None else 'Not provided'
         articles.append({'URL': loc, 'Last Modified': lastmod})
-
     return articles
 
 def parse_brunner_sitemap(url):
     """Parse sitemaps with the Brunner format."""
     response = requests.get(url)
     if response.status_code != 200:
+        st.error(f"Error fetching the sitemap from {url}: HTTP {response.status_code}")
         return []
 
     try:
+        # Define the namespace
         namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
         sitemap_xml = ET.fromstring(response.content)
         articles = []
@@ -62,7 +61,8 @@ def parse_brunner_sitemap(url):
                     lastmod = 'Invalid date format'
             articles.append({'URL': loc, 'Last Modified': lastmod})
         return articles
-    except ET.ParseError:
+    except ET.ParseError as e:
+        st.error(f"XML parsing error for {url}: {e}")
         return []
 
 def main():
