@@ -9,7 +9,8 @@ sitemap_urls = {
     'Kevin R Chant': 'https://www.kevinrchant.com/post-sitemap.xml',
     'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
-    'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml'
+    'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
+    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml'
 }
 
 def find_lastmod_element(url_elem, namespace):
