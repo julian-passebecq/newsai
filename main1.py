@@ -13,19 +13,21 @@ sitemap_urls = {
     'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml',
 }
 
+# Headers to address the 406 error
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+}
+
 def parse_sitemap(url):
     try:
-        response = requests.get(url)
-        # Check if we got a successful response from the server
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            # Define the namespace
-            namespace = 'http://www.sitemaps.org/schemas/sitemap/0.9'
-            ns_map = {'ns': namespace}
             sitemap_xml = ET.fromstring(response.content)
+            namespace = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
             articles = []
-            for url_elem in sitemap_xml.findall('ns:url', ns_map):
-                loc = url_elem.find('ns:loc', ns_map).text
-                lastmod_elem = url_elem.find('ns:lastmod', ns_map)
+            for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
+                loc = url_elem.find(f'{namespace}loc').text
+                lastmod_elem = url_elem.find(f'{namespace}lastmod')
                 lastmod = lastmod_elem.text if lastmod_elem is not None else 'Not provided'
                 if lastmod != 'Not provided':
                     try:
@@ -49,7 +51,6 @@ def main():
     
     all_articles = []
     for website_name, sitemap_url in sitemap_urls.items():
-        st.write(f"Fetching articles from: {sitemap_url}")  # Display on Streamlit app
         articles = parse_sitemap(sitemap_url)
         if articles:
             for article in articles:
@@ -58,8 +59,12 @@ def main():
     
     if all_articles:
         articles_df = pd.DataFrame(all_articles)
-        if 'Last Modified' in articles_df:
+        if 'Last Modified' in articles_df.columns:
             articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
+        else:
+            st.error("The 'Last Modified' column was not found in the articles data.")
+            return
+        
         search_query = st.text_input('Enter search term:')
         if search_query:
             filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
