@@ -1,9 +1,3 @@
 streamlit
-requests
 pandas
-xml.etree.ElementTree
-urllib.parse 
-datetime 
-dateutil
-bs4
-beautifulsoup4
+ultimate-sitemap-parser
