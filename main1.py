@@ -13,22 +13,20 @@ sitemap_urls = {
 }
 
 def find_lastmod_element(url_elem, namespace):
-    lastmod_elem = url_elem.find(f'{namespace}lastmod')
-    if lastmod_elem is not None:
-        # Strip the text to remove any leading/trailing whitespace
+    lastmod_elem = url_elem.find(f'.//{namespace}lastmod')
+    if lastmod_elem is not None and lastmod_elem.text:
         return lastmod_elem.text.strip()
     return 'Not provided'
 
 def parse_sitemap(url):
-    response = requests.get(url)
-    if response.status_code != 200:
-        return []
     try:
+        response = requests.get(url)
+        response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
         sitemap_xml = ET.fromstring(response.content)
         namespace = sitemap_xml.tag[sitemap_xml.tag.find('}')+1:]  # Extract the namespace
-        if namespace:
-            namespace = f"{{{namespace}}}"
-    except ET.ParseError:
+        namespace = f"{{{namespace}}}" if namespace else ''
+    except (requests.HTTPError, ET.ParseError) as e:
+        st.error(f"Failed to parse the sitemap: {e}")
         return []
 
     articles = []
@@ -45,27 +43,23 @@ def main():
     
     all_articles = []
     for website_name, sitemap_url in sitemap_urls.items():
+        st.write(f"Fetching articles from {website_name}...")
         articles = parse_sitemap(sitemap_url)
         for article in articles:
             article['Website'] = website_name
         all_articles.extend(articles)
     
-    # Convert to DataFrame only if articles are present
     if all_articles:
         articles_df = pd.DataFrame(all_articles)
-        articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', format='%Y-%m-%d')
-
-        # Search functionality
+        articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce')
         search_query = st.text_input('Enter search term:')
         if search_query:
             filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
         else:
             filtered_articles = articles_df
-        
-        # Display results
         st.write(filtered_articles)
     else:
-        st.write("No articles found.")
+        st.error("No articles found. Please check if sitemaps are accessible.")
 
 if __name__ == "__main__":
     main()
