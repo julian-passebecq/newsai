@@ -9,57 +9,58 @@ sitemap_urls = {
     'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
     'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
-    'Brunner': 'https://en.brunner.bi/blog-posts-sitemap.xml',  # Added Brunner sitemap
-    # Add more sitemaps here as needed
+    'Brunner': 'https://en.brunner.bi/blog-posts-sitemap.xml',
 }
 
-# Namespace dictionary to handle namespaces in XML tags
-namespaces = {
-    '': 'http://www.sitemaps.org/schemas/sitemap/0.9',
-    'news': 'http://www.google.com/schemas/sitemap-news/0.9',
-    # Add other namespaces if needed
-}
-
-def parse_sitemap(url):
-    response = requests.get(url)
-    if response.status_code != 200:
+# Function to fetch and parse the sitemap XML
+def fetch_parse_sitemap(url):
+    try:
+        # Fetch the XML content
+        response = requests.get(url)
+        response.raise_for_status()  # will raise an HTTPError if the HTTP request returned an unsuccessful status code
+    except requests.exceptions.RequestException as e:
+        st.error(f"Request error for {url}: {e}")
         return []
     try:
-        # Register namespaces and parse the XML
-        for prefix, uri in namespaces.items():
-            ET.register_namespace(prefix, uri)
-        sitemap_xml = ET.fromstring(response.content)
-    except ET.ParseError:
+        # Parse the XML content
+        root = ET.fromstring(response.content)
+        namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+        # Find all 'url' elements
+        urls = root.findall('ns:url', namespace)
+        articles = [
+            {
+                'URL': elem.find('ns:loc', namespace).text,
+                'Last Modified': elem.find('ns:lastmod', namespace).text if elem.find('ns:lastmod', namespace) is not None else 'Not provided'
+            }
+            for elem in urls
+        ]
+        return articles
+    except ET.ParseError as e:
+        st.error(f"XML parse error for {url}: {e}")
         return []
 
-    articles = []
-    for url_elem in sitemap_xml.findall('url', namespaces):
-        loc = url_elem.find('loc', namespaces).text if url_elem.find('loc', namespaces) is not None else 'URL not found'
-        lastmod = url_elem.find('lastmod', namespaces).text if url_elem.find('lastmod', namespaces) is not None else 'Not provided'
-        articles.append({'URL': loc, 'Last Modified': lastmod})
-
-    return articles
-
+# Main function to run the Streamlit app
 def main():
     st.title('Article Search Across Multiple Websites')
-    
     all_articles = []
-    for website_name, sitemap_url in sitemap_urls.items():
-        articles = parse_sitemap(sitemap_url)
+    for name, url in sitemap_urls.items():
+        articles = fetch_parse_sitemap(url)
+        # Add the website name to each article
         for article in articles:
-            article['Website'] = website_name
+            article['Website'] = name
         all_articles.extend(articles)
-    
-    articles_df = pd.DataFrame(all_articles)
-    articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True).dt.strftime('%Y-%m-%d')
+    # Create a DataFrame from the articles
+    df = pd.DataFrame(all_articles)
+    # Convert 'Last Modified' to datetime and format it
+    df['Last Modified'] = pd.to_datetime(df['Last Modified'], errors='coerce').dt.strftime('%Y-%m-%d')
 
+    # User input for search
     search_query = st.text_input('Enter search term:')
-    if search_query:
-        filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
-    else:
-        filtered_articles = articles_df
+    # Filter articles based on search query
+    filtered_articles = df[df['URL'].str.contains(search_query, na=False)] if search_query else df
 
-    st.write(filtered_articles)
+    # Display the articles in the app
+    st.dataframe(filtered_articles)
 
 if __name__ == "__main__":
     main()
