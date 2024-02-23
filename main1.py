@@ -11,28 +11,24 @@ sitemap_urls = {
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
     'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
     'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml',  # Added the new website here
-    # Add more sitemaps here as needed
 }
 
 def parse_sitemap(url):
     response = requests.get(url)
     if response.status_code != 200:
+        print(f"Failed to fetch sitemap from {url}, status code: {response.status_code}")
         return []
     try:
-        # Find the namespace. For some sitemaps, this may not be necessary.
-        namespace = ''
+        namespace = ''  # Default namespace
         if '}' in response.content.decode('utf-8'):
-            namespace = 'http://www.sitemaps.org/schemas/sitemap/0.9'
+            namespace = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
+        
         sitemap_xml = ET.fromstring(response.content)
-        
-        # Add the namespace to the find calls if it exists
-        findstr = '{' + namespace + '}' if namespace else ''
-        
         articles = []
-        for url_elem in sitemap_xml.findall(f'.//{findstr}url'):
-            loc = url_elem.find(f'{findstr}loc').text if url_elem.find(f'{findstr}loc') is not None else 'URL not found'
+        for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
+            loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
             lastmod = 'Not provided'
-            lastmod_elem = url_elem.find(f'{findstr}lastmod')
+            lastmod_elem = url_elem.find(f'{namespace}lastmod')
             if lastmod_elem is not None:
                 lastmod = lastmod_elem.text
                 try:
@@ -43,29 +39,32 @@ def parse_sitemap(url):
         
         return articles
 
-    except ET.ParseError:
+    except ET.ParseError as e:
+        print(f"XML parsing error for {url}: {e}")
         return []
-
 
 def main():
     st.title('Article Search Across Multiple Websites')
     
     all_articles = []
     for website_name, sitemap_url in sitemap_urls.items():
+        print(f"Fetching articles from: {sitemap_url}")
         articles = parse_sitemap(sitemap_url)
-        for article in articles:
-            article['Website'] = website_name  # Add website name to each article
-        all_articles.extend(articles)
-    
-    # Create DataFrame only if the all_articles list is not empty
+        if articles:
+            print(f"Found {len(articles)} articles in {sitemap_url}")
+            for article in articles:
+                article['Website'] = website_name
+            all_articles.extend(articles)
+        else:
+            print(f"No articles found in {sitemap_url}")
+
     if all_articles:
         articles_df = pd.DataFrame(all_articles)
-        # Check if 'Last Modified' column exists before attempting conversion
         if 'Last Modified' in articles_df.columns:
             articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
         else:
             st.error("The 'Last Modified' column was not found in the articles data.")
-            return  # Stop further processing if the column is missing
+            return
         
         search_query = st.text_input('Enter search term:')
         if search_query:
@@ -79,4 +78,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
