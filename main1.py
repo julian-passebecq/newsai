@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
 import pandas as pd
-from datetime import datetime
 
 # Define the sitemap URLs including Brunner
 sitemap_urls = {
@@ -14,30 +13,29 @@ sitemap_urls = {
     # Add more sitemaps here as needed
 }
 
+# Namespace dictionary to handle namespaces in XML tags
+namespaces = {
+    '': 'http://www.sitemaps.org/schemas/sitemap/0.9',
+    'news': 'http://www.google.com/schemas/sitemap-news/0.9',
+    # Add other namespaces if needed
+}
+
 def parse_sitemap(url):
     response = requests.get(url)
     if response.status_code != 200:
         return []
     try:
+        # Register namespaces and parse the XML
+        for prefix, uri in namespaces.items():
+            ET.register_namespace(prefix, uri)
         sitemap_xml = ET.fromstring(response.content)
     except ET.ParseError:
         return []
 
-    # Look for the namespace
-    namespace = ''
-    if '}' in sitemap_xml.tag:
-        namespace = sitemap_xml.tag.split('}')[0] + '}'
-
     articles = []
-    for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
-        loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
-        lastmod_tags = [f'{namespace}lastmod', f'{namespace}LastMod', f'{namespace}Last Modified']  # Add more variations as needed
-        lastmod = 'Not provided'
-        for tag in lastmod_tags:
-            lastmod_elem = url_elem.find(tag)
-            if lastmod_elem is not None:
-                lastmod = lastmod_elem.text
-                break
+    for url_elem in sitemap_xml.findall('url', namespaces):
+        loc = url_elem.find('loc', namespaces).text if url_elem.find('loc', namespaces) is not None else 'URL not found'
+        lastmod = url_elem.find('lastmod', namespaces).text if url_elem.find('lastmod', namespaces) is not None else 'Not provided'
         articles.append({'URL': loc, 'Last Modified': lastmod})
 
     return articles
@@ -49,11 +47,11 @@ def main():
     for website_name, sitemap_url in sitemap_urls.items():
         articles = parse_sitemap(sitemap_url)
         for article in articles:
-            article['Website'] = website_name  # Add website name to each article
+            article['Website'] = website_name
         all_articles.extend(articles)
     
     articles_df = pd.DataFrame(all_articles)
-    articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
+    articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True).dt.strftime('%Y-%m-%d')
 
     search_query = st.text_input('Enter search term:')
     if search_query:
