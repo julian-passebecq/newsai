@@ -5,3 +5,4 @@ xml.etree.ElementTree
 urllib.parse 
 datetime 
 dateutil
+bs4
