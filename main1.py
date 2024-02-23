@@ -46,6 +46,7 @@ def parse_sitemap(url):
     except ET.ParseError:
         return []
 
+
 def main():
     st.title('Article Search Across Multiple Websites')
     
@@ -56,16 +57,26 @@ def main():
             article['Website'] = website_name  # Add website name to each article
         all_articles.extend(articles)
     
-    articles_df = pd.DataFrame(all_articles)
-    articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
+    # Create DataFrame only if the all_articles list is not empty
+    if all_articles:
+        articles_df = pd.DataFrame(all_articles)
+        # Check if 'Last Modified' column exists before attempting conversion
+        if 'Last Modified' in articles_df.columns:
+            articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
+        else:
+            st.error("The 'Last Modified' column was not found in the articles data.")
+            return  # Stop further processing if the column is missing
+        
+        search_query = st.text_input('Enter search term:')
+        if search_query:
+            filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
+        else:
+            filtered_articles = articles_df
 
-    search_query = st.text_input('Enter search term:')
-    if search_query:
-        filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
+        st.write(filtered_articles)
     else:
-        filtered_articles = articles_df
-
-    st.write(filtered_articles)
+        st.error("No articles were found. Please check the sitemap URLs.")
 
 if __name__ == "__main__":
     main()
+
