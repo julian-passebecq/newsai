@@ -13,18 +13,21 @@ sitemap_urls = {
     'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml',
 }
 
-# Headers to address the 406 error
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-}
-
 def parse_sitemap(url):
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url)
         if response.status_code == 200:
             sitemap_xml = ET.fromstring(response.content)
-            namespace = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
             articles = []
+
+            # Check for the presence of a namespace.
+            namespace = ''
+            for elem in sitemap_xml.iter():
+                if '}' in elem.tag:
+                    namespace = elem.tag.split('}')[0] + '}'
+                    break
+
+            # Find all 'url' elements in the XML
             for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
                 loc = url_elem.find(f'{namespace}loc').text
                 lastmod_elem = url_elem.find(f'{namespace}lastmod')
@@ -61,10 +64,6 @@ def main():
         articles_df = pd.DataFrame(all_articles)
         if 'Last Modified' in articles_df.columns:
             articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
-        else:
-            st.error("The 'Last Modified' column was not found in the articles data.")
-            return
-        
         search_query = st.text_input('Enter search term:')
         if search_query:
             filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
