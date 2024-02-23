@@ -1,0 +1,91 @@
+# Import required libraries
+from usp.tree import sitemap_tree_for_homepage
+import csv
+import os
+import logging
+import pandas as pd
+
+# Set up basic logging
+logging.basicConfig(level=logging.INFO)
+
+
+# Function to clean and format CSV data and save to a new file
+def clean_and_format_csv_data(input_csv_file_path, output_csv_file_path):
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(input_csv_file_path)
+    
+    # Convert 'Last Modified' to datetime, handling the timezone
+    df['Last Modified'] = pd.to_datetime(df['Last Modified'], errors='coerce').dt.tz_localize(None)
+    
+    # Format the 'Last Modified' date as YYYY-MM-DD
+    df['Last Modified'] = df['Last Modified'].dt.strftime('%Y-%m-%d')
+    
+    # Extract the year from 'Last Modified' and create a new 'Year' column
+    # Ensure the 'Year' column is in integer format
+    df['Year'] = pd.to_datetime(df['Last Modified']).dt.year.astype('Int64')
+    
+    # Function to extract and clean article titles from URLs
+    def extract_title(url):
+        # Attempt to extract the last part of the URL as the title
+        title = url.split('/')[-1] if url.split('/')[-1] else url.split('/')[-2]
+        # Replace hyphens with spaces and remove file extensions
+        clean_title = title.replace('-', ' ').replace('.html', '').replace('.htm', '').replace('.aspx', '')
+        # Decode URL-encoded characters
+        clean_title = clean_title.replace('%20', ' ').replace('%3F', '?').replace('%2C', ',')
+        # Check if clean_title is meaningful or set to empty string if it's numeric or not useful
+        clean_title = clean_title if not clean_title.isdigit() and clean_title not in ['index', ''] else ''
+        return clean_title
+    
+    df['Article Title'] = df['URL'].apply(extract_title)
+    
+    # Save the cleaned and formatted DataFrame to a new CSV file
+    df.to_csv(output_csv_file_path, index=False)
+
+# Function to fetch sitemap for multiple sites and append data to CSV
+def fetch_sitemaps_and_append_to_csv(urls, csv_file_path):
+    # Determine if the CSV file already exists to avoid writing headers multiple times
+    file_exists = os.path.isfile(csv_file_path)
+    
+    # Open CSV file for appending
+    with open(csv_file_path, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        # Write header if the file does not exist
+        if not file_exists:
+            writer.writerow(['URL', 'Last Modified', 'Website Origin'])
+            
+        # Iterate over each URL in the list
+        for url in urls:
+            try:
+                # Fetch sitemap tree
+                tree = sitemap_tree_for_homepage(url)
+                # Iterate over pages in the sitemap
+                for page in tree.all_pages():
+                    # Extract relevant data
+                    page_url = page.url
+                    last_modified = page.last_modified
+                    # Assume website origin can be derived from the URL
+                    website_origin = url.split('/')[2]
+                    # Append data to CSV
+                    writer.writerow([page_url, last_modified, website_origin])
+            except Exception as e:
+                logging.error(f"Failed to process {url}: {e}")
+
+# List of URLs to fetch sitemaps from
+urls = [
+    'https://www.kevinrchant.com',
+    'https://data-mozart.com',
+    'https://blog.crossjoin.co.uk',
+    'https://thomas-leblanc.com',
+    'https://en.brunner.bi',
+]
+
+# Example usage
+if __name__ == "__main__":
+    #fetch_sitemaps_and_append_to_csv(urls, 'sitemap_data3.csv')
+    input_csv = 'sitemap_data4.csv'
+    output_csv = 'sitemap_data4_c4.csv'
+    clean_and_format_csv_data(input_csv, output_csv)
+   
+
+
+    

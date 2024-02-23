@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-url = 'https://www.kevinrchant.com/'
+url = 'https://en.brunner.bi/'
 reqs = requests.get(url)
 soup = BeautifulSoup(reqs.text, 'html.parser')
 
