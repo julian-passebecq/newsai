@@ -8,7 +8,7 @@ def load_data(csv_file):
 def main():
     st.title("Sitemap Data Viewer")
 
-    df = load_data('sitemap_data_cleaned.csv')
+    df = load_data('sitemap_data4_c4.csv')
 
     # Filter options
     year = st.selectbox('Select Year', options=df['Year'].unique())
