@@ -1,39 +1,28 @@
 import streamlit as st
 import pandas as pd
 
-# Updated function to load data using Streamlit's new caching command
 @st.experimental_memo
 def load_data(csv_file):
-    data = pd.read_csv(csv_file)
-    return data
+    return pd.read_csv(csv_file)
 
 def main():
-    st.title("Streamlit App for Displaying Sitemap Data")
+    st.title("Sitemap Data Viewer")
 
-    # Path to the CSV file
-    csv_file = 'sitemap_data4_c4.csv'
-    
-    # Load the data
-    df = load_data(csv_file)
+    df = load_data('sitemap_data_cleaned.csv')
 
-    # Display a search bar and filter data based on user input
-    search_query = st.text_input("Search by Article Title:")
-    if search_query:
-        df = df[df['Article Title'].str.contains(search_query, case=False, na=False)]
-    
-    # Multi-select box for filtering by website origin
-    websites = df['Website Origin'].unique().tolist()
-    selected_websites = st.multiselect("Filter by Website Origin:", websites, default=websites)
-    df_filtered = df[df['Website Origin'].isin(selected_websites)]
+    # Filter options
+    year = st.selectbox('Select Year', options=df['Year'].unique())
+    website_origin = st.multiselect('Select Website Origin', options=df['Website Origin'].unique())
 
-    # Make URLs clickable
-    def make_clickable(name, link):
-        return f'<a target="_blank" href="{link}">{name}</a>'
+    # Search bar
+    search_query = st.text_input('Search by Article Title')
 
-    df_filtered['clickable_urls'] = df_filtered.apply(lambda x: make_clickable(x['Article Title'], x['URL']), axis=1)
+    # Applying filters
+    filtered_df = df[df['Year'] == year] if year else df
+    filtered_df = filtered_df[filtered_df['Website Origin'].isin(website_origin)] if website_origin else filtered_df
+    filtered_df = filtered_df[filtered_df['Article Title'].str.contains(search_query, case=False)] if search_query else filtered_df
 
-    # Convert DataFrame to HTML for clickable links and display using st.markdown
-    st.markdown(df_filtered.to_html(escape=False, columns=['Last Modified', 'Website Origin', 'Year', 'clickable_urls'], index=False), unsafe_allow_html=True)
+    st.dataframe(filtered_df, use_container_width=True)
 
 if __name__ == "__main__":
     main()
