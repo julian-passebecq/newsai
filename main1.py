@@ -10,15 +10,14 @@ sitemap_urls = {
     'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
     'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
-    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml'
+    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml'  # New website added
 }
 
 def find_lastmod_element(url_elem, namespace):
-    # Possible tag names for the last modified date
-    for tag in ['lastmod', 'Last Modified', 'lastMod']:
-        lastmod = url_elem.find(f'{namespace}{tag}')
-        if lastmod is not None:
-            return lastmod.text
+    lastmod_elem = url_elem.find(f'{namespace}lastmod')
+    if lastmod_elem is not None:
+        # Strip the text to remove any leading/trailing whitespace
+        return lastmod_elem.text.strip()
     return 'Not provided'
 
 def parse_sitemap(url):
@@ -27,18 +26,17 @@ def parse_sitemap(url):
         return []
     try:
         sitemap_xml = ET.fromstring(response.content)
+        # Extract the namespace URL from the 'urlset' element (if present)
+        namespace = sitemap_xml.tag.split('}')[0].strip('{') if '}' in sitemap_xml.tag else ''
+        namespace = f'{{{namespace}}}' if namespace else ''  # Reformat to use with find/findall
     except ET.ParseError:
         return []
 
-    # Look for the namespace
-    namespace = ''
-    if '}' in sitemap_xml.tag:
-        namespace = sitemap_xml.tag.split('}')[0] + '}'
-
     articles = []
     for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
-        loc = url_elem.find(f'{namespace}loc').text if url_elem.find(f'{namespace}loc') is not None else 'URL not found'
-        lastmod = find_lastmod_element(url_elem, namespace)  # Use the new function to find the last modified date
+        loc_elem = url_elem.find(f'{namespace}loc')
+        loc = loc_elem.text.strip() if loc_elem is not None else 'URL not found'
+        lastmod = find_lastmod_element(url_elem, namespace)
         articles.append({'URL': loc, 'Last Modified': lastmod})
 
     return articles
@@ -50,19 +48,25 @@ def main():
     for website_name, sitemap_url in sitemap_urls.items():
         articles = parse_sitemap(sitemap_url)
         for article in articles:
-            article['Website'] = website_name  # Add website name to each article
+            article['Website'] = website_name
         all_articles.extend(articles)
     
-    articles_df = pd.DataFrame(all_articles)
-    articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
-
-    search_query = st.text_input('Enter search term:')
-    if search_query:
-        filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
+    # Convert to DataFrame only if articles are present
+    if all_articles:
+        articles_df = pd.DataFrame(all_articles)
+        articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
+        
+        # Search functionality
+        search_query = st.text_input('Enter search term:')
+        if search_query:
+            filtered_articles = articles_df[articles_df['URL'].str.contains(search_query, case=False, na=False)]
+        else:
+            filtered_articles = articles_df
+        
+        # Display results
+        st.write(filtered_articles)
     else:
-        filtered_articles = articles_df
-
-    st.write(filtered_articles)
+        st.write("No articles found.")
 
 if __name__ == "__main__":
     main()
