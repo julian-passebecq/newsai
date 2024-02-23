@@ -18,15 +18,14 @@ def parse_sitemap(url):
         response = requests.get(url)
         # Check if we got a successful response from the server
         if response.status_code == 200:
+            # Define the namespace
+            namespace = 'http://www.sitemaps.org/schemas/sitemap/0.9'
+            ns_map = {'ns': namespace}
             sitemap_xml = ET.fromstring(response.content)
-            namespace = ''
-            if '}' in sitemap_xml.tag:
-                namespace = sitemap_xml.tag.split('}')[0] + '}'
-            
             articles = []
-            for url_elem in sitemap_xml.findall(f'.//{namespace}url'):
-                loc = url_elem.find(f'{namespace}loc').text
-                lastmod_elem = url_elem.find(f'{namespace}lastmod')
+            for url_elem in sitemap_xml.findall('ns:url', ns_map):
+                loc = url_elem.find('ns:loc', ns_map).text
+                lastmod_elem = url_elem.find('ns:lastmod', ns_map)
                 lastmod = lastmod_elem.text if lastmod_elem is not None else 'Not provided'
                 if lastmod != 'Not provided':
                     try:
@@ -34,16 +33,15 @@ def parse_sitemap(url):
                     except ValueError:
                         lastmod = 'Invalid date format'
                 articles.append({'URL': loc, 'Last Modified': lastmod})
-            
             return articles
         else:
-            print(f"Error fetching {url}: Status code {response.status_code}")
+            st.error(f"Error fetching {url}: Status code {response.status_code}")
             return []
     except requests.RequestException as e:
-        print(f"Request failed for {url}: {e}")
+        st.error(f"Request failed for {url}: {e}")
         return []
     except ET.ParseError as e:
-        print(f"XML parsing error for {url}: {e}")
+        st.error(f"XML parsing error for {url}: {e}")
         return []
 
 def main():
@@ -51,7 +49,7 @@ def main():
     
     all_articles = []
     for website_name, sitemap_url in sitemap_urls.items():
-        st.write(f"Fetching articles from: {sitemap_url}")  # Using st.write to display on Streamlit app
+        st.write(f"Fetching articles from: {sitemap_url}")  # Display on Streamlit app
         articles = parse_sitemap(sitemap_url)
         if articles:
             for article in articles:
