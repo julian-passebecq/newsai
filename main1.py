@@ -5,15 +5,20 @@ from dateutil import parser
 import pandas as pd
 
 # Define the sitemap URLs for standard and Brunner format
-standard_sitemap_urls = [
-    # Add standard format sitemap URLs here
-]
+standard_sitemap_urls = {
+    'Kevin R Chant': 'https://www.kevinrchant.com/post-sitemap.xml',
+    'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
+    'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
+    'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
+    # Add more standard sitemaps here
+}
 
-brunner_sitemap_urls = [
-    'https://en.brunner.bi/blog-posts-sitemap.xml',  # Add Brunner format sitemap URLs here
-]
+brunner_sitemap_urls = {
+    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml',
+    # Add more Brunner format sitemaps here
+}
 
-def parse_standard_sitemap(url):
+def parse_standard_sitemap(url, website_name):
     """Parse sitemaps with the standard format."""
     response = requests.get(url)
     if response.status_code != 200:
@@ -35,10 +40,10 @@ def parse_standard_sitemap(url):
         loc = url_elem.find(f'{namespace}loc').text
         lastmod_elem = url_elem.find(f'{namespace}lastmod')
         lastmod = lastmod_elem.text if lastmod_elem is not None else 'Not provided'
-        articles.append({'URL': loc, 'Last Modified': lastmod})
+        articles.append({'Website': website_name, 'URL': loc, 'Last Modified': lastmod})
     return articles
 
-def parse_brunner_sitemap(url):
+def parse_brunner_sitemap(url, website_name):
     """Parse sitemaps with the Brunner format."""
     response = requests.get(url)
     if response.status_code != 200:
@@ -59,7 +64,7 @@ def parse_brunner_sitemap(url):
                     lastmod = parser.parse(lastmod).isoformat()
                 except ValueError:
                     lastmod = 'Invalid date format'
-            articles.append({'URL': loc, 'Last Modified': lastmod})
+            articles.append({'Website': website_name, 'URL': loc, 'Last Modified': lastmod})
         return articles
     except ET.ParseError as e:
         st.error(f"XML parsing error for {url}: {e}")
@@ -70,13 +75,13 @@ def main():
 
     all_articles = []
     # Process standard format sitemaps
-    for url in standard_sitemap_urls:
-        articles = parse_standard_sitemap(url)
+    for website_name, url in standard_sitemap_urls.items():
+        articles = parse_standard_sitemap(url, website_name)
         all_articles.extend(articles)
 
     # Process Brunner format sitemaps
-    for url in brunner_sitemap_urls:
-        articles = parse_brunner_sitemap(url)
+    for website_name, url in brunner_sitemap_urls.items():
+        articles = parse_brunner_sitemap(url, website_name)
         all_articles.extend(articles)
 
     if all_articles:
