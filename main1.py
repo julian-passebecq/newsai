@@ -11,7 +11,7 @@ def main():
     st.title("Streamlit App for Displaying Sitemap Data")
 
     # Path to the CSV file
-    csv_file = 'sitemap_data_cleaned.csv'
+    csv_file = 'sitemap_data4_c4.csv'
     
     # Load the data
     df = load_data(csv_file)
