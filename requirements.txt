@@ -6,3 +6,4 @@ urllib.parse
 datetime 
 dateutil
 bs4
+beautifulsoup4
