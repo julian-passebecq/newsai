@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
 import pandas as pd
-from datetime import datetime
 
 # Define the sitemap URLs
 sitemap_urls = {
@@ -10,7 +9,7 @@ sitemap_urls = {
     'Data Mozart': 'https://data-mozart.com/post-sitemap.xml',
     'Crossjoin': 'https://blog.crossjoin.co.uk/sitemap-1.xml',
     'Thomas Leblanc': 'https://thomas-leblanc.com/sitemap-1.xml',
-    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml'  # New website added
+    'Brunner BI': 'https://en.brunner.bi/blog-posts-sitemap.xml'
 }
 
 def find_lastmod_element(url_elem, namespace):
@@ -26,9 +25,9 @@ def parse_sitemap(url):
         return []
     try:
         sitemap_xml = ET.fromstring(response.content)
-        # Extract the namespace URL from the 'urlset' element (if present)
-        namespace = sitemap_xml.tag.split('}')[0].strip('{') if '}' in sitemap_xml.tag else ''
-        namespace = f'{{{namespace}}}' if namespace else ''  # Reformat to use with find/findall
+        namespace = sitemap_xml.tag[sitemap_xml.tag.find('}')+1:]  # Extract the namespace
+        if namespace:
+            namespace = f"{{{namespace}}}"
     except ET.ParseError:
         return []
 
@@ -54,8 +53,8 @@ def main():
     # Convert to DataFrame only if articles are present
     if all_articles:
         articles_df = pd.DataFrame(all_articles)
-        articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', utc=True)
-        
+        articles_df['Last Modified'] = pd.to_datetime(articles_df['Last Modified'], errors='coerce', format='%Y-%m-%d')
+
         # Search functionality
         search_query = st.text_input('Enter search term:')
         if search_query:
