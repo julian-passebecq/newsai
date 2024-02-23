@@ -6,11 +6,7 @@ import pandas as pd
 
 # Define the sitemap URLs for standard and Brunner format
 standard_sitemap_urls = [
-    'https://www.kevinrchant.com/post-sitemap.xml',
-    'https://data-mozart.com/post-sitemap.xml',
-    'https://blog.crossjoin.co.uk/sitemap-1.xml',
-    'https://thomas-leblanc.com/sitemap-1.xml',
-    # Add standard format sitemap URLs here
+    
 ]
 
 brunner_sitemap_urls = [
